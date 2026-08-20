@@ -15,3 +15,20 @@
 
 .modal input[type=file]{padding:9px;background:#f8f9fc}
 .modal input[type=file]::file-selector-button{border:0;background:#eef2ff;color:#4f46e5;padding:8px 10px;border-radius:7px;font-weight:700;margin-right:8px;cursor:pointer}
+
+/* Center Login Section */
+#loginScreen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* Login Card */
+#loginScreen .login-card {
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+}

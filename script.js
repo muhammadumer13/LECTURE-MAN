@@ -30,11 +30,72 @@ async function loadData(){
   } finally { loading = false; }
 }
 
+
+// Supabase Authentication
+async function initAuth(){
+  const loginScreen = document.getElementById("loginScreen");
+  const adminApp = document.getElementById("adminApp");
+  const loginForm = document.getElementById("loginForm");
+  const loginError = document.getElementById("loginError");
+
+  if (!loginForm) return; // student.html does not have the admin login form
+
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("adminEmail").value.trim();
+    const password = document.getElementById("adminPassword").value;
+    const btn = loginForm.querySelector("button[type='submit']");
+    loginError.textContent = "";
+    btn.disabled = true;
+    btn.textContent = "Signing in...";
+
+    try {
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      if (error) throw error;
+      if (!authData.session) throw new Error("Login succeeded but no session was created.");
+
+      loginScreen.style.display = "none";
+      adminApp.style.display = "block";
+      await loadData();
+    } catch (err) {
+      console.error("Login error:", err);
+      loginError.textContent = err.message || "Unable to login.";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Login";
+    }
+  });
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    loginScreen.style.display = "none";
+    adminApp.style.display = "block";
+    await loadData();
+  } else {
+    loginScreen.style.display = "flex";
+    adminApp.style.display = "none";
+  }
+
+  supabase.auth.onAuthStateChange((_event, session) => {
+    if (session) {
+      loginScreen.style.display = "none";
+      adminApp.style.display = "block";
+    } else {
+      loginScreen.style.display = "flex";
+      adminApp.style.display = "none";
+    }
+  });
+}
+
 async function requireSession(){
   const {data: {session}} = await supabase.auth.getSession();
   if(!session){ toast("Please login first"); return false; }
   return true;
 }
+
 
 function fileUrl(path){
   if(!path) return "";
@@ -157,7 +218,7 @@ function renderAll(){renderDashboard();renderLectures();renderAssignments();rend
 function toast(msg){let t=document.getElementById("toast");t.textContent=msg;t.style.display="block";clearTimeout(window._toast);window._toast=setTimeout(()=>t.style.display="none",3000)}
 function copyStudentLink(){navigator.clipboard?.writeText(location.href.replace(/[^/]*$/,"student.html")).then(()=>toast("Student page link copied")).catch(()=>toast("Copy student.html link manually"))}
 fillWeeks();
-loadData();
+initAuth();
 
 function adminLogout(){
   supabase.auth.signOut().finally(()=>location.href="index.html");

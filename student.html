@@ -15,15 +15,15 @@
 <script>
 const SUPABASE_URL="https://vujdddbwrsrhbonvzhxk.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY="sb_publishable_i7Mgxy5g7wj5hRBexwymIA_uVlKaBZR";
-const supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const supabase_client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 const FILE_BUCKET="course-files";
 const esc=s=>String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
-const fileUrl=path=>path?supabase.storage.from(FILE_BUCKET).getPublicUrl(path).data.publicUrl:"";
+const fileUrl=path=>path?supabase_client.storage.from(FILE_BUCKET).getPublicUrl(path).data.publicUrl:"";
 async function loadStudent(){
  try{
   const [{data:lectures,error:le},{data:assignments,error:ae}]=await Promise.all([
-   supabase.from("lectures").select("*").eq("published",true).order("week",{ascending:true}).order("created_at",{ascending:true}),
-   supabase.from("assignments").select("*").eq("published",true).order("no",{ascending:true})
+   supabase_client.from("lectures").select("*").eq("published",true).order("week",{ascending:true}).order("created_at",{ascending:true}),
+   supabase_client.from("assignments").select("*").eq("published",true).order("no",{ascending:true})
   ]);
   if(le)throw le;if(ae)throw ae;
   let out="";

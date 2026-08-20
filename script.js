@@ -1,7 +1,8 @@
 const SUPABASE_URL = "https://vujdddbwrsrhbonvzhxk.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_i7Mgxy5g7wj5hRBexwymIA_uVlKaBZR";
+const SUPABASE_PUBLISHABLE_KEY =
+  "sb_publishable_i7Mgxy5g7wj5hRBexwymIA_uVlKaBZR";
 
-// Create Supabase client with a unique variable name
+// Create Supabase client
 const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_PUBLISHABLE_KEY
@@ -17,6 +18,11 @@ let data = {
 
 let loading = false;
 
+
+// ======================================================
+// HELPER
+// ======================================================
+
 function esc(s = "") {
   return String(s).replace(/[&<>"']/g, m => ({
     "&": "&amp;",
@@ -27,37 +33,68 @@ function esc(s = "") {
   }[m]));
 }
 
+
 function weeks() {
-  return Array.from({ length: 15 }, (_, i) => i + 1);
+  return Array.from(
+    { length: 15 },
+    (_, i) => i + 1
+  );
 }
 
+
+// ======================================================
+// NAVIGATION
+// ======================================================
+
 function openView(id) {
+
   document.querySelectorAll(".view").forEach(x =>
     x.classList.remove("active")
   );
 
   const view = document.getElementById(id);
-  if (view) view.classList.add("active");
+
+  if (view) {
+    view.classList.add("active");
+  }
 
   document.querySelectorAll(".nav-btn").forEach(x =>
-    x.classList.toggle("active", x.dataset.view === id)
+    x.classList.toggle(
+      "active",
+      x.dataset.view === id
+    )
   );
 }
 
+
 document.querySelectorAll(".nav-btn").forEach(b => {
-  b.onclick = () => openView(b.dataset.view);
+
+  b.onclick = () => {
+    openView(b.dataset.view);
+  };
+
 });
 
+
+// ======================================================
+// FILL WEEKS
+// ======================================================
+
 function fillWeeks() {
-  const weekElement = document.getElementById("lectureWeek");
+
+  const weekElement =
+    document.getElementById("lectureWeek");
 
   if (!weekElement) return;
 
-  weekElement.innerHTML = weeks()
-    .map(w =>
-      `<option value="${w}">Week ${String(w).padStart(2, "0")}</option>`
-    )
-    .join("");
+  weekElement.innerHTML =
+    weeks()
+      .map(w =>
+        `<option value="${w}">
+          Week ${String(w).padStart(2, "0")}
+        </option>`
+      )
+      .join("");
 }
 
 
@@ -66,122 +103,205 @@ function fillWeeks() {
 // ======================================================
 
 async function loadData() {
+
   loading = true;
 
   try {
+
     const [
-      { data: lectures, error: le },
-      { data: assignments, error: ae }
+      { data: lectures, error: lectureError },
+      { data: assignments, error: assignmentError }
     ] = await Promise.all([
+
       supabaseClient
         .from("lectures")
         .select("*")
-        .order("week", { ascending: true })
-        .order("created_at", { ascending: true }),
+        .order("week", {
+          ascending: true
+        })
+        .order("created_at", {
+          ascending: true
+        }),
 
       supabaseClient
         .from("assignments")
         .select("*")
-        .order("no", { ascending: true })
+        .order("no", {
+          ascending: true
+        })
+
     ]);
 
-    if (le) throw le;
-    if (ae) throw ae;
 
-    data.lectures = lectures || [];
-    data.assignments = assignments || [];
+    if (lectureError) {
+      throw lectureError;
+    }
+
+    if (assignmentError) {
+      throw assignmentError;
+    }
+
+
+    data.lectures =
+      lectures || [];
+
+    data.assignments =
+      assignments || [];
+
 
     renderAll();
 
   } catch (err) {
-    console.error("Database load error:", err);
+
+    console.error(
+      "Database load error:",
+      err
+    );
+
     toast(
       "Database error: " +
-      (err.message || "Unable to load data")
+      (err.message ||
+        "Unable to load data")
     );
+
   } finally {
+
     loading = false;
   }
 }
 
 
 // ======================================================
-// SUPABASE AUTHENTICATION
+// AUTHENTICATION
 // ======================================================
 
 async function initAuth() {
 
-  const loginScreen = document.getElementById("loginScreen");
-  const adminApp = document.getElementById("adminApp");
-  const loginForm = document.getElementById("loginForm");
-  const loginError = document.getElementById("loginError");
+  const loginScreen =
+    document.getElementById("loginScreen");
+
+  const adminApp =
+    document.getElementById("adminApp");
+
+  const loginForm =
+    document.getElementById("loginForm");
+
+  const loginError =
+    document.getElementById("loginError");
+
 
   // student.html does not have admin login
   if (!loginForm) {
     return;
   }
 
-  loginForm.addEventListener("submit", async (e) => {
 
-    e.preventDefault();
+  // ====================================================
+  // LOGIN
+  // ====================================================
 
-    const email =
-      document.getElementById("adminEmail").value.trim();
+  loginForm.addEventListener(
+    "submit",
+    async e => {
 
-    const password =
-      document.getElementById("adminPassword").value;
+      e.preventDefault();
 
-    const btn =
-      loginForm.querySelector("button[type='submit']") ||
-      loginForm.querySelector("button.login-btn");
 
-    loginError.textContent = "";
+      const email =
+        document
+          .getElementById("adminEmail")
+          .value
+          .trim();
 
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = "Signing in...";
-    }
 
-    try {
+      const password =
+        document
+          .getElementById("adminPassword")
+          .value;
 
-      const {
-        data: authData,
-        error
-      } = await supabaseClient.auth.signInWithPassword({
-        email,
-        password
-      });
 
-      if (error) {
-        throw error;
-      }
-
-      if (!authData.session) {
-        throw new Error(
-          "Login succeeded but no session was created."
+      const btn =
+        loginForm.querySelector(
+          "button[type='submit']"
+        ) ||
+        loginForm.querySelector(
+          "button.login-btn"
         );
-      }
 
-      loginScreen.style.display = "none";
-      adminApp.style.display = "block";
 
-      await loadData();
+      loginError.textContent = "";
 
-    } catch (err) {
-
-      console.error("Login error:", err);
-
-      loginError.textContent =
-        err.message || "Unable to login.";
-
-    } finally {
 
       if (btn) {
-        btn.disabled = false;
-        btn.textContent = "Login";
+
+        btn.disabled = true;
+        btn.textContent = "Signing in...";
+
       }
+
+
+      try {
+
+        const {
+          data: authData,
+          error
+        } =
+          await supabaseClient.auth
+            .signInWithPassword({
+              email,
+              password
+            });
+
+
+        if (error) {
+          throw error;
+        }
+
+
+        if (!authData.session) {
+
+          throw new Error(
+            "Login succeeded but no session was created."
+          );
+
+        }
+
+
+        loginScreen.style.display =
+          "none";
+
+        adminApp.style.display =
+          "block";
+
+
+        await loadData();
+
+
+      } catch (err) {
+
+        console.error(
+          "Login error:",
+          err
+        );
+
+        loginError.textContent =
+          err.message ||
+          "Unable to login.";
+
+
+      } finally {
+
+        if (btn) {
+
+          btn.disabled = false;
+          btn.textContent = "Login";
+
+        }
+
+      }
+
     }
-  });
+  );
 
 
   // ====================================================
@@ -193,33 +313,54 @@ async function initAuth() {
     const {
       data: sessionData,
       error
-    } = await supabaseClient.auth.getSession();
+    } =
+      await supabaseClient.auth
+        .getSession();
+
 
     if (error) {
       throw error;
     }
 
-    const session = sessionData?.session;
+
+    const session =
+      sessionData?.session;
+
 
     if (session) {
 
-      loginScreen.style.display = "none";
-      adminApp.style.display = "block";
+      loginScreen.style.display =
+        "none";
+
+      adminApp.style.display =
+        "block";
+
 
       await loadData();
 
     } else {
 
-      loginScreen.style.display = "flex";
-      adminApp.style.display = "none";
+      loginScreen.style.display =
+        "flex";
+
+      adminApp.style.display =
+        "none";
     }
+
 
   } catch (err) {
 
-    console.error("Session check error:", err);
+    console.error(
+      "Session check error:",
+      err
+    );
 
-    loginScreen.style.display = "flex";
-    adminApp.style.display = "none";
+
+    loginScreen.style.display =
+      "flex";
+
+    adminApp.style.display =
+      "none";
   }
 
 
@@ -232,14 +373,21 @@ async function initAuth() {
 
       if (session) {
 
-        loginScreen.style.display = "none";
-        adminApp.style.display = "block";
+        loginScreen.style.display =
+          "none";
+
+        adminApp.style.display =
+          "block";
 
       } else {
 
-        loginScreen.style.display = "flex";
-        adminApp.style.display = "none";
+        loginScreen.style.display =
+          "flex";
+
+        adminApp.style.display =
+          "none";
       }
+
     }
   );
 }
@@ -256,25 +404,50 @@ async function requireSession() {
     const {
       data: sessionData,
       error
-    } = await supabaseClient.auth.getSession();
+    } =
+      await supabaseClient.auth
+        .getSession();
+
 
     if (error) {
-      console.error("Session error:", error);
-      toast("Authentication error");
+
+      console.error(
+        "Session error:",
+        error
+      );
+
+      toast(
+        "Authentication error"
+      );
+
       return false;
     }
 
+
     if (!sessionData?.session) {
-      toast("Please login first");
+
+      toast(
+        "Please login first"
+      );
+
       return false;
     }
+
 
     return true;
 
+
   } catch (err) {
 
-    console.error("requireSession error:", err);
-    toast("Please login again");
+    console.error(
+      "requireSession error:",
+      err
+    );
+
+    toast(
+      "Please login again"
+    );
+
     return false;
   }
 }
@@ -286,15 +459,23 @@ async function requireSession() {
 
 function fileUrl(path) {
 
-  if (!path) return "";
+  if (!path) {
+    return "";
+  }
+
 
   const {
     data: publicData
-  } = supabaseClient.storage
-    .from(FILE_BUCKET)
-    .getPublicUrl(path);
+  } =
+    supabaseClient.storage
+      .from(FILE_BUCKET)
+      .getPublicUrl(path);
 
-  return publicData?.publicUrl || "";
+
+  return (
+    publicData?.publicUrl ||
+    ""
+  );
 }
 
 
@@ -302,38 +483,71 @@ function fileUrl(path) {
 // UPLOAD FILE
 // ======================================================
 
-async function uploadFile(file, folder) {
+async function uploadFile(
+  file,
+  folder
+) {
 
-  if (!file) return null;
+  if (!file) {
+    return null;
+  }
+
 
   const ext =
-    (file.name.split(".").pop() || "bin").toLowerCase();
+    (
+      file.name
+        .split(".")
+        .pop() ||
+      "bin"
+    ).toLowerCase();
+
 
   const safeName =
-    file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    file.name.replace(
+      /[^a-zA-Z0-9._-]/g,
+      "_"
+    );
+
 
   const path =
     `${folder}/${crypto.randomUUID()}-${safeName}`;
 
+
   const {
     data: uploaded,
     error
-  } = await supabaseClient.storage
-    .from(FILE_BUCKET)
-    .upload(path, file, {
-      contentType:
-        file.type || "application/octet-stream",
-      upsert: false
-    });
+  } =
+    await supabaseClient.storage
+      .from(FILE_BUCKET)
+      .upload(
+        path,
+        file,
+        {
+          contentType:
+            file.type ||
+            "application/octet-stream",
+
+          upsert: false
+        }
+      );
+
 
   if (error) {
     throw error;
   }
 
+
   return {
-    path: uploaded.path,
-    name: file.name,
-    type: file.type || `application/${ext}`
+
+    path:
+      uploaded.path,
+
+    name:
+      file.name,
+
+    type:
+      file.type ||
+      `application/${ext}`
   };
 }
 
@@ -344,19 +558,26 @@ async function uploadFile(file, folder) {
 
 async function removeFile(path) {
 
-  if (!path) return;
+  if (!path) {
+    return;
+  }
+
 
   const {
     error
-  } = await supabaseClient.storage
-    .from(FILE_BUCKET)
-    .remove([path]);
+  } =
+    await supabaseClient.storage
+      .from(FILE_BUCKET)
+      .remove([path]);
+
 
   if (error) {
+
     console.warn(
       "Could not remove old file",
       error
     );
+
   }
 }
 
@@ -365,47 +586,186 @@ async function removeFile(path) {
 // LECTURE MODAL
 // ======================================================
 
-function openLectureModal(id = null) {
+function openLectureModal(
+  id = null
+) {
 
   fillWeeks();
 
-  lectureForm.reset();
 
-  lectureId.value = "";
+  const form =
+    document.getElementById(
+      "lectureForm"
+    );
 
-  lectureModalTitle.textContent =
-    id ? "Edit Lecture" : "Add Lecture";
+  const course =
+    document.getElementById(
+      "lectureCourse"
+    );
 
-  if (id) {
+  const lectureIdElement =
+    document.getElementById(
+      "lectureId"
+    );
 
-    const x =
-      data.lectures.find(a => a.id === id);
+  const lectureWeekElement =
+    document.getElementById(
+      "lectureWeek"
+    );
 
-    if (!x) return;
+  const lectureTitleElement =
+    document.getElementById(
+      "lectureTitle"
+    );
 
-    lectureId.value = x.id;
-    lectureWeek.value = x.week;
-    lectureTitle.value = x.title;
-    lectureDescription.value =
-      x.description || "";
+  const lectureDescriptionElement =
+    document.getElementById(
+      "lectureDescription"
+    );
 
-    lectureFileInfo.textContent =
-      x.file_name
-        ? "Current file: " + x.file_name
-        : "No file uploaded";
+  const lectureFileInfoElement =
+    document.getElementById(
+      "lectureFileInfo"
+    );
 
-    lecturePublished.checked =
-      !!x.published;
+  const lecturePublishedElement =
+    document.getElementById(
+      "lecturePublished"
+    );
 
-  } else {
+  const lectureModalTitleElement =
+    document.getElementById(
+      "lectureModalTitle"
+    );
 
-    lectureFileInfo.textContent =
-      "Optional · PDF, PPT, DOC, ZIP and common document/image files";
+
+  if (form) {
+    form.reset();
   }
 
-  document
-    .getElementById("lectureModal")
-    .classList.add("open");
+
+  if (lectureIdElement) {
+    lectureIdElement.value = "";
+  }
+
+
+  if (lectureModalTitleElement) {
+
+    lectureModalTitleElement.textContent =
+      id
+        ? "Edit Lecture"
+        : "Add Lecture";
+
+  }
+
+
+  // ====================================================
+  // ADD NEW LECTURE
+  // ====================================================
+
+  if (!id) {
+
+    if (course) {
+      course.value = "";
+    }
+
+
+    if (lectureFileInfoElement) {
+
+      lectureFileInfoElement.textContent =
+        "Optional · PDF, PPT, DOC, ZIP and common document/image files";
+
+    }
+
+
+  }
+
+  // ====================================================
+  // EDIT EXISTING LECTURE
+  // ====================================================
+
+  else {
+
+    const x =
+      data.lectures.find(
+        a => a.id === id
+      );
+
+
+    if (!x) {
+      return;
+    }
+
+
+    if (lectureIdElement) {
+      lectureIdElement.value = x.id;
+    }
+
+
+    // IMPORTANT:
+    // Load course when editing
+    if (course) {
+
+      course.value =
+        x.course || "";
+
+    }
+
+
+    if (lectureWeekElement) {
+
+      lectureWeekElement.value =
+        x.week;
+
+    }
+
+
+    if (lectureTitleElement) {
+
+      lectureTitleElement.value =
+        x.title || "";
+
+    }
+
+
+    if (lectureDescriptionElement) {
+
+      lectureDescriptionElement.value =
+        x.description || "";
+
+    }
+
+
+    if (lectureFileInfoElement) {
+
+      lectureFileInfoElement.textContent =
+        x.file_name
+          ? "Current file: " +
+            x.file_name
+          : "No file uploaded";
+
+    }
+
+
+    if (lecturePublishedElement) {
+
+      lecturePublishedElement.checked =
+        !!x.published;
+
+    }
+
+  }
+
+
+  const modal =
+    document.getElementById(
+      "lectureModal"
+    );
+
+
+  if (modal) {
+    modal.classList.add("open");
+  }
 }
 
 
@@ -413,36 +773,68 @@ function openLectureModal(id = null) {
 // ASSIGNMENT MODAL
 // ======================================================
 
-function openAssignmentModal(id = null) {
+function openAssignmentModal(
+  id = null
+) {
 
-  assignmentForm.reset();
+  const form =
+    document.getElementById(
+      "assignmentForm"
+    );
+
+  if (form) {
+    form.reset();
+  }
+
 
   assignmentId.value = "";
 
+
   assignmentModalTitle.textContent =
-    id ? "Edit Assignment" : "Add Assignment";
+    id
+      ? "Edit Assignment"
+      : "Add Assignment";
+
 
   if (id) {
 
     const x =
-      data.assignments.find(a => a.id === id);
+      data.assignments.find(
+        a => a.id === id
+      );
 
-    if (!x) return;
 
-    assignmentId.value = x.id;
-    assignmentNo.value = x.no;
-    assignmentTitle.value = x.title;
-    assignmentDue.value = x.due || "";
+    if (!x) {
+      return;
+    }
+
+
+    assignmentId.value =
+      x.id;
+
+    assignmentNo.value =
+      x.no;
+
+    assignmentTitle.value =
+      x.title || "";
+
+    assignmentDue.value =
+      x.due || "";
+
     assignmentDescription.value =
       x.description || "";
 
+
     assignmentFileInfo.textContent =
       x.file_name
-        ? "Current file: " + x.file_name
+        ? "Current file: " +
+          x.file_name
         : "No file uploaded";
+
 
     assignmentPublished.checked =
       !!x.published;
+
 
   } else {
 
@@ -450,14 +842,22 @@ function openAssignmentModal(id = null) {
       "Optional · Assignment document or ZIP";
   }
 
-  assignmentModal.classList.add("open");
+
+  assignmentModal.classList.add(
+    "open"
+  );
 }
 
+
+// ======================================================
+// CLOSE MODAL
+// ======================================================
 
 function closeModal(id) {
 
   const modal =
     document.getElementById(id);
+
 
   if (modal) {
     modal.classList.remove("open");
@@ -469,296 +869,559 @@ function closeModal(id) {
 // SAVE LECTURE
 // ======================================================
 
-lectureForm.onsubmit = async e => {
-
-  e.preventDefault();
-
-  if (!(await requireSession())) {
-    return;
-  }
-
-  const button = e.submitter;
-
-  button.disabled = true;
-
-  try {
-
-    const id = lectureId.value;
-
-    const existing =
-      id
-        ? data.lectures.find(x => x.id === id)
-        : null;
-
-    const file =
-      lectureFile.files[0];
-
-    let file_path =
-      existing?.file_path || null;
-
-    let file_name =
-      existing?.file_name || null;
-
-    let file_type =
-      existing?.file_type || null;
+const lectureFormElement =
+  document.getElementById(
+    "lectureForm"
+  );
 
 
-    if (file) {
+if (lectureFormElement) {
 
-      if (file.size > 50 * 1024 * 1024) {
+  lectureFormElement.onsubmit =
+    async e => {
 
-        toast(
-          "Lecture file must be 50 MB or smaller"
-        );
+      e.preventDefault();
 
+
+      if (!(await requireSession())) {
         return;
       }
 
-      const uploaded =
-        await uploadFile(
-          file,
-          `lectures/week-${String(
-            +lectureWeek.value
-          ).padStart(2, "0")}`
+
+      const button =
+        e.submitter ||
+        lectureFormElement.querySelector(
+          "button[type='submit']"
         );
 
-      file_path = uploaded.path;
-      file_name = uploaded.name;
-      file_type = uploaded.type;
-    }
+
+      if (button) {
+        button.disabled = true;
+      }
 
 
-    const obj = {
+      try {
 
-      week: +lectureWeek.value,
+        const id =
+          document.getElementById(
+            "lectureId"
+          ).value;
 
-      title:
-        lectureTitle.value.trim(),
 
-      description:
-        lectureDescription.value.trim(),
+        const existing =
+          id
+            ? data.lectures.find(
+                x => x.id === id
+              )
+            : null;
 
-      file_path,
 
-      file_name,
+        // ==================================================
+        // COURSE
+        // ==================================================
 
-      file_type,
+        const course =
+          document.getElementById(
+            "lectureCourse"
+          ).value;
 
-      published:
-        lecturePublished.checked
+
+        if (!course) {
+
+          toast(
+            "Please select a course."
+          );
+
+          return;
+        }
+
+
+        // ==================================================
+        // OTHER VALUES
+        // ==================================================
+
+        const week =
+          Number(
+            document.getElementById(
+              "lectureWeek"
+            ).value
+          );
+
+
+        const title =
+          document.getElementById(
+            "lectureTitle"
+          ).value.trim();
+
+
+        const description =
+          document.getElementById(
+            "lectureDescription"
+          ).value.trim();
+
+
+        const published =
+          document.getElementById(
+            "lecturePublished"
+          ).checked;
+
+
+        const file =
+          document.getElementById(
+            "lectureFile"
+          ).files[0];
+
+
+        let file_path =
+          existing?.file_path ||
+          null;
+
+
+        let file_name =
+          existing?.file_name ||
+          null;
+
+
+        let file_type =
+          existing?.file_type ||
+          null;
+
+
+        // ==================================================
+        // VALIDATION
+        // ==================================================
+
+        if (!title) {
+
+          toast(
+            "Please enter lecture title."
+          );
+
+          return;
+        }
+
+
+        if (!week) {
+
+          toast(
+            "Please select a week."
+          );
+
+          return;
+        }
+
+
+        // ==================================================
+        // FILE UPLOAD
+        // ==================================================
+
+        if (file) {
+
+          if (
+            file.size >
+            50 * 1024 * 1024
+          ) {
+
+            toast(
+              "Lecture file must be 50 MB or smaller"
+            );
+
+            return;
+          }
+
+
+          const uploaded =
+            await uploadFile(
+              file,
+              `lectures/week-${String(
+                week
+              ).padStart(2, "0")}`
+            );
+
+
+          file_path =
+            uploaded.path;
+
+          file_name =
+            uploaded.name;
+
+          file_type =
+            uploaded.type;
+        }
+
+
+        // ==================================================
+        // SUPABASE OBJECT
+        // ==================================================
+
+        const obj = {
+
+          // IMPORTANT
+          // This fixes your NULL course error
+          course: course,
+
+          week: week,
+
+          title: title,
+
+          description: description,
+
+          file_path: file_path,
+
+          file_name: file_name,
+
+          file_type: file_type,
+
+          published: published
+
+        };
+
+
+        console.log(
+          "Saving lecture:",
+          obj
+        );
+
+
+        let result;
+
+
+        // ==================================================
+        // UPDATE
+        // ==================================================
+
+        if (id) {
+
+          result =
+            await supabaseClient
+              .from("lectures")
+              .update(obj)
+              .eq("id", id)
+              .select()
+              .single();
+
+        }
+
+        // ==================================================
+        // INSERT
+        // ==================================================
+
+        else {
+
+          result =
+            await supabaseClient
+              .from("lectures")
+              .insert(obj)
+              .select()
+              .single();
+
+        }
+
+
+        if (result.error) {
+          throw result.error;
+        }
+
+
+        // ==================================================
+        // REMOVE OLD FILE
+        // ==================================================
+
+        if (
+          file &&
+          existing?.file_path &&
+          existing.file_path !== file_path
+        ) {
+
+          await removeFile(
+            existing.file_path
+          );
+
+        }
+
+
+        // ==================================================
+        // FINISH
+        // ==================================================
+
+        closeModal(
+          "lectureModal"
+        );
+
+
+        toast(
+          "Lecture saved to Supabase"
+        );
+
+
+        await loadData();
+
+
+      } catch (err) {
+
+        console.error(
+          "Lecture save error:",
+          err
+        );
+
+
+        toast(
+          err.message ||
+          "Unable to save lecture"
+        );
+
+
+      } finally {
+
+        if (button) {
+          button.disabled = false;
+        }
+
+      }
+
     };
 
-
-    let result;
-
-    if (id) {
-
-      result =
-        await supabaseClient
-          .from("lectures")
-          .update(obj)
-          .eq("id", id)
-          .select()
-          .single();
-
-    } else {
-
-      result =
-        await supabaseClient
-          .from("lectures")
-          .insert(obj)
-          .select()
-          .single();
-    }
-
-
-    if (result.error) {
-      throw result.error;
-    }
-
-
-    if (
-      file &&
-      existing?.file_path &&
-      existing.file_path !== file_path
-    ) {
-
-      await removeFile(
-        existing.file_path
-      );
-    }
-
-
-    closeModal("lectureModal");
-
-    toast("Lecture saved to Supabase");
-
-    await loadData();
-
-  } catch (err) {
-
-    console.error(err);
-
-    toast(
-      err.message ||
-      "Unable to save lecture"
-    );
-
-  } finally {
-
-    button.disabled = false;
-  }
-};
+}
 
 
 // ======================================================
 // SAVE ASSIGNMENT
 // ======================================================
 
-assignmentForm.onsubmit = async e => {
-
-  e.preventDefault();
-
-  if (!(await requireSession())) {
-    return;
-  }
-
-  const button = e.submitter;
-
-  button.disabled = true;
-
-  try {
-
-    const id = assignmentId.value;
-
-    const existing =
-      id
-        ? data.assignments.find(x => x.id === id)
-        : null;
-
-    const file =
-      assignmentFile.files[0];
-
-    let file_path =
-      existing?.file_path || null;
-
-    let file_name =
-      existing?.file_name || null;
-
-    let file_type =
-      existing?.file_type || null;
+const assignmentFormElement =
+  document.getElementById(
+    "assignmentForm"
+  );
 
 
-    if (file) {
+if (assignmentFormElement) {
 
-      if (file.size > 50 * 1024 * 1024) {
+  assignmentFormElement.onsubmit =
+    async e => {
 
-        toast(
-          "Assignment file must be 50 MB or smaller"
-        );
+      e.preventDefault();
 
+
+      if (!(await requireSession())) {
         return;
       }
 
-      const uploaded =
-        await uploadFile(
-          file,
-          "assignments"
+
+      const button =
+        e.submitter ||
+        assignmentFormElement.querySelector(
+          "button[type='submit']"
         );
 
-      file_path = uploaded.path;
-      file_name = uploaded.name;
-      file_type = uploaded.type;
-    }
+
+      if (button) {
+        button.disabled = true;
+      }
 
 
-    const obj = {
+      try {
 
-      no: +assignmentNo.value,
+        const id =
+          assignmentId.value;
 
-      title:
-        assignmentTitle.value.trim(),
 
-      due:
-        assignmentDue.value || null,
+        const existing =
+          id
+            ? data.assignments.find(
+                x => x.id === id
+              )
+            : null;
 
-      description:
-        assignmentDescription.value.trim(),
 
-      file_path,
+        const file =
+          assignmentFile.files[0];
 
-      file_name,
 
-      file_type,
+        let file_path =
+          existing?.file_path ||
+          null;
 
-      published:
-        assignmentPublished.checked
+
+        let file_name =
+          existing?.file_name ||
+          null;
+
+
+        let file_type =
+          existing?.file_type ||
+          null;
+
+
+        // ==================================================
+        // FILE UPLOAD
+        // ==================================================
+
+        if (file) {
+
+          if (
+            file.size >
+            50 * 1024 * 1024
+          ) {
+
+            toast(
+              "Assignment file must be 50 MB or smaller"
+            );
+
+            return;
+          }
+
+
+          const uploaded =
+            await uploadFile(
+              file,
+              "assignments"
+            );
+
+
+          file_path =
+            uploaded.path;
+
+          file_name =
+            uploaded.name;
+
+          file_type =
+            uploaded.type;
+        }
+
+
+        // ==================================================
+        // ASSIGNMENT OBJECT
+        // ==================================================
+
+        const obj = {
+
+          no:
+            +assignmentNo.value,
+
+          title:
+            assignmentTitle.value.trim(),
+
+          due:
+            assignmentDue.value ||
+            null,
+
+          description:
+            assignmentDescription.value.trim(),
+
+          file_path:
+            file_path,
+
+          file_name:
+            file_name,
+
+          file_type:
+            file_type,
+
+          published:
+            assignmentPublished.checked
+        };
+
+
+        let result;
+
+
+        // ==================================================
+        // UPDATE
+        // ==================================================
+
+        if (id) {
+
+          result =
+            await supabaseClient
+              .from("assignments")
+              .update(obj)
+              .eq("id", id)
+              .select()
+              .single();
+
+        }
+
+        // ==================================================
+        // INSERT
+        // ==================================================
+
+        else {
+
+          result =
+            await supabaseClient
+              .from("assignments")
+              .upsert(
+                obj,
+                {
+                  onConflict: "no"
+                }
+              )
+              .select()
+              .single();
+
+        }
+
+
+        if (result.error) {
+          throw result.error;
+        }
+
+
+        // ==================================================
+        // REMOVE OLD FILE
+        // ==================================================
+
+        if (
+          file &&
+          existing?.file_path &&
+          existing.file_path !== file_path
+        ) {
+
+          await removeFile(
+            existing.file_path
+          );
+
+        }
+
+
+        closeModal(
+          "assignmentModal"
+        );
+
+
+        toast(
+          "Assignment saved to Supabase"
+        );
+
+
+        await loadData();
+
+
+      } catch (err) {
+
+        console.error(
+          "Assignment save error:",
+          err
+        );
+
+
+        toast(
+          err.message ||
+          "Unable to save assignment"
+        );
+
+
+      } finally {
+
+        if (button) {
+          button.disabled = false;
+        }
+
+      }
+
     };
 
-
-    let result;
-
-    if (id) {
-
-      result =
-        await supabaseClient
-          .from("assignments")
-          .update(obj)
-          .eq("id", id)
-          .select()
-          .single();
-
-    } else {
-
-      result =
-        await supabaseClient
-          .from("assignments")
-          .upsert(
-            obj,
-            { onConflict: "no" }
-          )
-          .select()
-          .single();
-    }
-
-
-    if (result.error) {
-      throw result.error;
-    }
-
-
-    if (
-      file &&
-      existing?.file_path &&
-      existing.file_path !== file_path
-    ) {
-
-      await removeFile(
-        existing.file_path
-      );
-    }
-
-
-    closeModal("assignmentModal");
-
-    toast("Assignment saved to Supabase");
-
-    await loadData();
-
-  } catch (err) {
-
-    console.error(err);
-
-    toast(
-      err.message ||
-      "Unable to save assignment"
-    );
-
-  } finally {
-
-    button.disabled = false;
-  }
-};
+}
 
 
 // ======================================================
@@ -767,13 +1430,19 @@ assignmentForm.onsubmit = async e => {
 
 async function delLecture(id) {
 
-  if (!confirm("Delete this lecture?")) {
+  if (
+    !confirm(
+      "Delete this lecture?"
+    )
+  ) {
     return;
   }
+
 
   if (!(await requireSession())) {
     return;
   }
+
 
   try {
 
@@ -782,33 +1451,50 @@ async function delLecture(id) {
         a => a.id === id
       );
 
+
     const {
       error
-    } = await supabaseClient
-      .from("lectures")
-      .delete()
-      .eq("id", id);
+    } =
+      await supabaseClient
+        .from("lectures")
+        .delete()
+        .eq("id", id);
+
 
     if (error) {
       throw error;
     }
 
+
     if (x?.file_path) {
-      await removeFile(x.file_path);
+
+      await removeFile(
+        x.file_path
+      );
+
     }
+
 
     await loadData();
 
-    toast("Lecture deleted");
+
+    toast(
+      "Lecture deleted"
+    );
+
 
   } catch (err) {
 
-    console.error(err);
+    console.error(
+      err
+    );
+
 
     toast(
       err.message ||
       "Unable to delete lecture"
     );
+
   }
 }
 
@@ -819,13 +1505,19 @@ async function delLecture(id) {
 
 async function delAssignment(id) {
 
-  if (!confirm("Delete this assignment?")) {
+  if (
+    !confirm(
+      "Delete this assignment?"
+    )
+  ) {
     return;
   }
+
 
   if (!(await requireSession())) {
     return;
   }
+
 
   try {
 
@@ -834,33 +1526,50 @@ async function delAssignment(id) {
         a => a.id === id
       );
 
+
     const {
       error
-    } = await supabaseClient
-      .from("assignments")
-      .delete()
-      .eq("id", id);
+    } =
+      await supabaseClient
+        .from("assignments")
+        .delete()
+        .eq("id", id);
+
 
     if (error) {
       throw error;
     }
 
+
     if (x?.file_path) {
-      await removeFile(x.file_path);
+
+      await removeFile(
+        x.file_path
+      );
+
     }
+
 
     await loadData();
 
-    toast("Assignment deleted");
+
+    toast(
+      "Assignment deleted"
+    );
+
 
   } catch (err) {
 
-    console.error(err);
+    console.error(
+      err
+    );
+
 
     toast(
       err.message ||
       "Unable to delete assignment"
     );
+
   }
 }
 
@@ -871,49 +1580,132 @@ async function delAssignment(id) {
 
 function renderDashboard() {
 
-  statLectures.textContent =
-    data.lectures.length;
+  if (
+    typeof statLectures !== "undefined"
+  ) {
 
-  statWeeks.textContent =
-    `${new Set(
-      data.lectures.map(x => x.week)
-    ).size}/15`;
+    statLectures.textContent =
+      data.lectures.length;
 
-  statAssignments.textContent =
-    `${data.assignments.length}/3`;
-
-  statPublished.textContent =
-    data.lectures.filter(
-      x => x.published
-    ).length;
+  }
 
 
-  weekGrid.innerHTML =
-    weeks()
-      .map(w => {
+  if (
+    typeof statWeeks !== "undefined"
+  ) {
 
-        const arr =
-          data.lectures.filter(
-            x => x.week === w
-          );
+    statWeeks.textContent =
+      `${new Set(
+        data.lectures.map(
+          x => x.week
+        )
+      ).size}/15`;
 
-        const pub =
-          arr.filter(
-            x => x.published
-          ).length;
+  }
 
-        return `
-          <div class="week" onclick="filterWeek(${w})">
-            <b>Week ${String(w).padStart(2, "0")}</b>
-            <small>
-              ${arr.length}
-              lecture${arr.length !== 1 ? "s" : ""}
-              · ${pub} published
-            </small>
-          </div>
-        `;
-      })
-      .join("");
+
+  if (
+    typeof statAssignments !== "undefined"
+  ) {
+
+    statAssignments.textContent =
+      `${data.assignments.length}/3`;
+
+  }
+
+
+  if (
+    typeof statPublished !== "undefined"
+  ) {
+
+    statPublished.textContent =
+      data.lectures.filter(
+        x => x.published
+      ).length;
+
+  }
+
+
+  if (
+    typeof weekGrid !== "undefined"
+  ) {
+
+    weekGrid.innerHTML =
+      weeks()
+        .map(w => {
+
+          const arr =
+            data.lectures.filter(
+              x => x.week === w
+            );
+
+
+          const pub =
+            arr.filter(
+              x => x.published
+            ).length;
+
+
+          return `
+            <div
+              class="week"
+              onclick="filterWeek(${w})">
+
+              <b>
+                Week
+                ${String(w).padStart(2, "0")}
+              </b>
+
+              <small>
+                ${arr.length}
+                lecture${arr.length !== 1 ? "s" : ""}
+                ·
+                ${pub}
+                published
+              </small>
+
+            </div>
+          `;
+
+        })
+        .join("");
+
+  }
+}
+
+
+// ======================================================
+// LECTURE COURSE CLASS
+// ======================================================
+
+function getCourseClass(course) {
+
+  const name =
+    String(course || "")
+      .toLowerCase();
+
+
+  if (
+    name.includes("programming") ||
+    name.includes("fundamental")
+  ) {
+
+    return "programming";
+
+  }
+
+
+  if (
+    name.includes("dbms") ||
+    name.includes("database")
+  ) {
+
+    return "dbms";
+
+  }
+
+
+  return "default";
 }
 
 
@@ -923,37 +1715,71 @@ function renderDashboard() {
 
 function filterWeek(w) {
 
-  openView("lectures");
+  openView(
+    "lectures"
+  );
 
-  lectureSearch.value = "";
 
-  lectureFilter.value = "all";
+  if (
+    typeof lectureSearch !== "undefined"
+  ) {
+
+    lectureSearch.value = "";
+
+  }
+
+
+  if (
+    typeof lectureFilter !== "undefined"
+  ) {
+
+    lectureFilter.value =
+      "all";
+
+  }
+
 
   renderLectures(w);
 }
 
 
-function renderLectures(forceWeek = null) {
+function renderLectures(
+  forceWeek = null
+) {
+
+  if (
+    typeof lectureList === "undefined"
+  ) {
+    return;
+  }
+
 
   const q =
-    (lectureSearch.value || "")
-      .toLowerCase();
+    (
+      lectureSearch?.value ||
+      ""
+    ).toLowerCase();
+
 
   const f =
-    lectureFilter.value || "all";
+    lectureFilter?.value ||
+    "all";
 
 
   let arr =
     data.lectures.filter(x =>
 
-      (forceWeek
-        ? x.week === forceWeek
-        : true)
+      (
+        forceWeek
+          ? x.week === forceWeek
+          : true
+      )
 
       &&
 
       (
-        x.title
+
+        (x.title || "")
           .toLowerCase()
           .includes(q)
 
@@ -962,110 +1788,187 @@ function renderLectures(forceWeek = null) {
         (x.description || "")
           .toLowerCase()
           .includes(q)
+
+        ||
+
+        (x.course || "")
+          .toLowerCase()
+          .includes(q)
+
       )
 
       &&
 
       (
+
         f === "all"
 
         ||
 
-        (f === "published" &&
-          x.published)
+        (
+          f === "published" &&
+          x.published
+        )
 
         ||
 
-        (f === "draft" &&
-          !x.published)
+        (
+          f === "draft" &&
+          !x.published
+        )
+
       )
+
     );
 
 
   arr.sort(
-    (a, b) => a.week - b.week
+    (a, b) =>
+      a.week - b.week
   );
 
 
   lectureList.innerHTML =
+
     arr.length
 
       ?
 
-      arr.map(x => `
+      arr
+        .map(x => {
 
-        <div class="card">
+          const courseClass =
+            getCourseClass(
+              x.course
+            );
 
-          <div>
 
-            <span class="tag ${x.published ? "" : "draft"}">
+          return `
 
-              ${x.published
-                ? "Published"
-                : "Draft"}
+            <div class="card">
 
-              · Week
-              ${String(x.week).padStart(2, "0")}
+              <div>
 
-            </span>
+                <span
+                  class="tag ${x.published ? "" : "draft"}">
 
-            <h3>
-              ${esc(x.title)}
-            </h3>
+                  ${x.published
+                    ? "Published"
+                    : "Draft"}
 
-            <p>
-              ${esc(
-                x.description ||
-                "No description"
-              )}
-            </p>
+                  · Week
+                  ${String(
+                    x.week
+                  ).padStart(2, "0")}
 
-            ${
-              x.file_name
+                </span>
 
-              ?
 
-              `<div class="meta">
-                📎 ${esc(x.file_name)}
-              </div>`
+                <div
+                  style="
+                    margin-top:8px;
+                    font-size:13px;
+                    font-weight:600;
+                  ">
 
-              :
+                  <span
+                    class="course-bullet ${courseClass}"
+                    style="
+                      display:inline-block;
+                      width:9px;
+                      height:9px;
+                      border-radius:50%;
+                      margin-right:6px;
+                    ">
+                  </span>
 
-              `<div class="meta">
-                No file uploaded
-              </div>`
-            }
+                  ${esc(
+                    x.course ||
+                    "No Course"
+                  )}
 
-          </div>
+                </div>
 
-          <div class="actions">
 
-            <button
-              class="secondary"
-              onclick="openLectureModal('${x.id}')">
-              Edit
-            </button>
+                <h3>
+                  ${esc(
+                    x.title
+                  )}
+                </h3>
 
-            <button
-              class="danger"
-              onclick="delLecture('${x.id}')">
-              Delete
-            </button>
 
-          </div>
+                <p>
+                  ${esc(
+                    x.description ||
+                    "No description"
+                  )}
+                </p>
 
-        </div>
 
-      `).join("")
+                ${
+                  x.file_name
+
+                  ?
+
+                  `
+                    <div class="meta">
+                      📎
+                      ${esc(
+                        x.file_name
+                      )}
+                    </div>
+                  `
+
+                  :
+
+                  `
+                    <div class="meta">
+                      No file uploaded
+                    </div>
+                  `
+                }
+
+              </div>
+
+
+              <div class="actions">
+
+                <button
+                  class="secondary"
+                  onclick="openLectureModal('${x.id}')">
+
+                  Edit
+
+                </button>
+
+
+                <button
+                  class="danger"
+                  onclick="delLecture('${x.id}')">
+
+                  Delete
+
+                </button>
+
+              </div>
+
+            </div>
+
+          `;
+
+        })
+        .join("")
 
       :
 
       `
         <div class="card">
+
           <p>
             No lectures found.
             Add your first lecture.
           </p>
+
         </div>
       `;
 }
@@ -1076,6 +1979,13 @@ function renderLectures(forceWeek = null) {
 // ======================================================
 
 function renderAssignments() {
+
+  if (
+    typeof assignmentList === "undefined"
+  ) {
+    return;
+  }
+
 
   assignmentList.innerHTML =
     [1, 2, 3]
@@ -1096,7 +2006,8 @@ function renderAssignments() {
 
               <div>
 
-                <span class="tag ${x.published ? "" : "draft"}">
+                <span
+                  class="tag ${x.published ? "" : "draft"}">
 
                   Assignment ${no}
 
@@ -1108,11 +2019,16 @@ function renderAssignments() {
 
                 </span>
 
+
                 <h3>
-                  ${esc(x.title)}
+                  ${esc(
+                    x.title
+                  )}
                 </h3>
 
+
                 <p>
+
                   ${esc(
                     x.description ||
                     "No instructions"
@@ -1120,35 +2036,56 @@ function renderAssignments() {
 
                   ${
                     x.due
-                      ? ` · Due ${esc(x.due)}`
+                      ? ` · Due ${esc(
+                          x.due
+                        )}`
                       : ""
                   }
+
                 </p>
+
 
                 ${
                   x.file_name
-                    ? `
+
+                    ?
+
+                    `
                       <div class="meta">
-                        📎 ${esc(x.file_name)}
+
+                        📎
+                        ${esc(
+                          x.file_name
+                        )}
+
                       </div>
                     `
-                    : ""
+
+                    :
+
+                    ""
                 }
 
               </div>
+
 
               <div class="actions">
 
                 <button
                   class="secondary"
                   onclick="openAssignmentModal('${x.id}')">
+
                   Edit
+
                 </button>
+
 
                 <button
                   class="danger"
                   onclick="delAssignment('${x.id}')">
+
                   Delete
+
                 </button>
 
               </div>
@@ -1167,9 +2104,11 @@ function renderAssignments() {
                   Assignment ${no}
                 </span>
 
+
                 <h3>
                   Not added yet
                 </h3>
+
 
                 <p>
                   Add assignment ${no}
@@ -1178,24 +2117,36 @@ function renderAssignments() {
 
               </div>
 
+
               <button
                 class="primary"
                 onclick="openAssignmentModal()">
+
                 + Add
+
               </button>
 
             </div>
           `;
+
       })
       .join("");
 }
 
 
 // ======================================================
-// STUDENT VIEW
+// STUDENT PREVIEW
 // ======================================================
 
 function renderStudent() {
+
+  if (
+    typeof studentCourseTitle ===
+    "undefined"
+  ) {
+    return;
+  }
+
 
   studentCourseTitle.textContent =
     data.courseTitle;
@@ -1219,104 +2170,154 @@ function renderStudent() {
 
 
         return `
+
           <div class="student-week">
 
             <h3>
-              Week ${String(w).padStart(2, "0")}
+              Week
+              ${String(
+                w
+              ).padStart(2, "0")}
             </h3>
 
+
             ${
-              arr.map(x => `
+              arr
+                .map(x => `
 
-                <div class="student-item">
+                  <div
+                    class="student-item">
 
-                  <div>
+                    <div>
 
-                    <b>
-                      ${esc(x.title)}
-                    </b>
+                      <b>
+                        ${esc(
+                          x.title
+                        )}
+                      </b>
 
-                    <div class="meta">
-                      ${esc(
-                        x.description ||
-                        "Lecture material"
-                      )}
+
+                      <div
+                        class="meta">
+
+                        ${esc(
+                          x.description ||
+                          "Lecture material"
+                        )}
+
+                      </div>
+
                     </div>
+
+
+                    ${
+                      x.file_path
+
+                        ?
+
+                        `
+                          <a
+                            class="download"
+                            href="${fileUrl(
+                              x.file_path
+                            )}"
+                            target="_blank"
+                            rel="noopener">
+
+                            Download ↓
+
+                          </a>
+                        `
+
+                        :
+
+                        `
+                          <span class="meta">
+                            No file
+                          </span>
+                        `
+                    }
 
                   </div>
 
-                  ${
-                    x.file_path
-
-                    ?
-
-                    `<a
-                      class="download"
-                      href="${fileUrl(x.file_path)}"
-                      target="_blank"
-                      rel="noopener">
-                      Download ↓
-                    </a>`
-
-                    :
-
-                    `<span class="meta">
-                      No file
-                    </span>`
-                  }
-
-                </div>
-
-              `).join("")
+                `)
+                .join("")
             }
 
           </div>
+
         `;
+
       })
       .join("");
 
 
   const as =
     data.assignments
-      .filter(x => x.published)
-      .sort((a, b) => a.no - b.no)
+      .filter(
+        x => x.published
+      )
+      .sort(
+        (a, b) =>
+          a.no - b.no
+      )
       .map(x => `
 
-        <div class="assignment-row">
+        <div
+          class="assignment-row">
 
           <b>
-            Assignment ${x.no}:
-            ${esc(x.title)}
+
+            Assignment
+            ${x.no}:
+
+            ${esc(
+              x.title
+            )}
+
           </b>
+
 
           <div class="meta">
 
-            ${esc(x.description || "")}
+            ${esc(
+              x.description ||
+              ""
+            )}
 
             ${
               x.due
-                ? ` · Due ${esc(x.due)}`
+                ? ` · Due ${esc(
+                    x.due
+                  )}`
                 : ""
             }
 
           </div>
 
+
           ${
             x.file_path
 
-            ?
+              ?
 
-            `<a
-              class="download"
-              href="${fileUrl(x.file_path)}"
-              target="_blank"
-              rel="noopener">
-              Download ↓
-            </a>`
+              `
+                <a
+                  class="download"
+                  href="${fileUrl(
+                    x.file_path
+                  )}"
+                  target="_blank"
+                  rel="noopener">
 
-            :
+                  Download ↓
 
-            ""
+                </a>
+              `
+
+              :
+
+              ""
           }
 
         </div>
@@ -1334,9 +2335,11 @@ function renderStudent() {
 
       `
         <div class="student-week">
+
           <p class="muted">
             No published lectures yet.
           </p>
+
         </div>
       `
     )
@@ -1350,8 +2353,13 @@ function renderStudent() {
 
       `
         <div class="student-week">
-          <h3>Assignments</h3>
+
+          <h3>
+            Assignments
+          </h3>
+
           ${as}
+
         </div>
       `
 
@@ -1369,9 +2377,46 @@ function renderStudent() {
 function renderAll() {
 
   renderDashboard();
+
   renderLectures();
+
   renderAssignments();
+
   renderStudent();
+}
+
+
+// ======================================================
+// SEARCH / FILTER EVENTS
+// ======================================================
+
+if (
+  typeof lectureSearch !==
+  "undefined"
+) {
+
+  lectureSearch.addEventListener(
+    "input",
+    () => {
+      renderLectures();
+    }
+  );
+
+}
+
+
+if (
+  typeof lectureFilter !==
+  "undefined"
+) {
+
+  lectureFilter.addEventListener(
+    "change",
+    () => {
+      renderLectures();
+    }
+  );
+
 }
 
 
@@ -1382,20 +2427,36 @@ function renderAll() {
 function toast(msg) {
 
   const t =
-    document.getElementById("toast");
+    document.getElementById(
+      "toast"
+    );
 
-  if (!t) return;
 
-  t.textContent = msg;
+  if (!t) {
+    return;
+  }
 
-  t.style.display = "block";
 
-  clearTimeout(window._toast);
+  t.textContent =
+    msg;
+
+
+  t.style.display =
+    "block";
+
+
+  clearTimeout(
+    window._toast
+  );
+
 
   window._toast =
     setTimeout(
       () => {
-        t.style.display = "none";
+
+        t.style.display =
+          "none";
+
       },
       3000
     );
@@ -1408,22 +2469,47 @@ function toast(msg) {
 
 function copyStudentLink() {
 
+  const studentUrl =
+    location.href.replace(
+      /[^/]*$/,
+      "student.html"
+    );
+
+
   navigator.clipboard
     ?.writeText(
-      location.href.replace(
-        /[^/]*$/,
-        "student.html"
-      )
+      studentUrl
     )
 
-    .then(() =>
-      toast("Student page link copied")
+    .then(
+      () =>
+        toast(
+          "Student page link copied"
+        )
     )
 
-    .catch(() =>
-      toast(
-        "Copy student.html link manually"
-      )
+    .catch(
+      () =>
+        toast(
+          "Copy student.html link manually"
+        )
+    );
+}
+
+
+// ======================================================
+// LOGOUT
+// ======================================================
+
+function adminLogout() {
+
+  supabaseClient.auth
+    .signOut()
+    .finally(
+      () => {
+        location.href =
+          "index.html";
+      }
     );
 }
 
@@ -1435,17 +2521,3 @@ function copyStudentLink() {
 fillWeeks();
 
 initAuth();
-
-
-// ======================================================
-// LOGOUT
-// ======================================================
-
-function adminLogout() {
-
-  supabaseClient.auth
-    .signOut()
-    .finally(() => {
-      location.href = "index.html";
-    });
-}

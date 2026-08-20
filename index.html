@@ -13,8 +13,11 @@
       <h1>LectureHub</h1>
       <p class="muted">Teacher / Admin Login</p>
       <form id="loginForm">
+        <label>Email
+          <input id="adminEmail" type="email" placeholder="teacher@example.com" required autofocus>
+        </label>
         <label>Password
-          <input id="adminPassword" type="password" inputmode="numeric" placeholder="Enter admin password" required autofocus>
+          <input id="adminPassword" type="password" placeholder="Enter password" required>
         </label>
         <button class="primary login-btn">Login</button>
         <p id="loginError" class="login-error"></p>
@@ -141,6 +144,7 @@
   </div>
 
   <div id="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
   <script src="style.js"></script>
   </div>

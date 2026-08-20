@@ -8,16 +8,30 @@
 <main class="container">
 <div class="student-shell" style="margin-top:25px">
 <div class="student-hero"><span class="pill">COURSE MATERIAL</span><h1 id="title">My Course Lectures</h1><p>Download published lecture material and assignments.</p></div>
-<div id="content"></div>
+<div id="content"><div class="student-week"><p class="muted">Loading course material...</p></div></div>
 </div>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const KEY="lecturehub_v1";const d=JSON.parse(localStorage.getItem(KEY)||'null')||{courseTitle:"My Course Lectures",lectures:[],assignments:[]};
+const SUPABASE_URL="https://vujdddbwrsrhbonvzhxk.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY="sb_publishable_i7Mgxy5g7wj5hRBexwymIA_uVlKaBZR";
+const supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const FILE_BUCKET="course-files";
 const esc=s=>String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
-title.textContent=d.courseTitle;
-let out="";
-for(let w=1;w<=15;w++){let a=d.lectures.filter(x=>x.week===w&&x.published);if(!a.length)continue;out+=`<div class="student-week"><h3>Week ${String(w).padStart(2,"0")}</h3>`+a.map(x=>`<div class="student-item"><div><b>${esc(x.title)}</b><div class="meta">${esc(x.description||"Lecture material")}</div></div>${x.fileData?`<a class="download" href="${x.fileData}" download="${esc(x.fileName||"lecture-file")}">Download ↓</a>`:`<span class="meta">No file</span>`}</div>`).join("")+"</div>"}
-let as=d.assignments.filter(x=>x.published).sort((a,b)=>a.no-b.no);if(as.length)out+=`<div class="student-week"><h3>Assignments</h3>`+as.map(x=>`<div class="assignment-row"><b>Assignment ${x.no}: ${esc(x.title)}</b><div class="meta">${esc(x.description)}${x.due?" · Due "+esc(x.due):""}</div>${x.fileData?`<a class="download" href="${x.fileData}" download="${esc(x.fileName||"assignment-file")}">Download ↓</a>`:""}</div>`).join("")+"</div>";
-content.innerHTML=out||'<div class="student-week"><p class="muted">No published material is available yet.</p></div>';
+const fileUrl=path=>path?supabase.storage.from(FILE_BUCKET).getPublicUrl(path).data.publicUrl:"";
+async function loadStudent(){
+ try{
+  const [{data:lectures,error:le},{data:assignments,error:ae}]=await Promise.all([
+   supabase.from("lectures").select("*").eq("published",true).order("week",{ascending:true}).order("created_at",{ascending:true}),
+   supabase.from("assignments").select("*").eq("published",true).order("no",{ascending:true})
+  ]);
+  if(le)throw le;if(ae)throw ae;
+  let out="";
+  for(let w=1;w<=15;w++){let a=lectures.filter(x=>x.week===w);if(!a.length)continue;out+=`<div class="student-week"><h3>Week ${String(w).padStart(2,"0")}</h3>`+a.map(x=>`<div class="student-item"><div><b>${esc(x.title)}</b><div class="meta">${esc(x.description||"Lecture material")}</div></div>${x.file_path?`<a class="download" href="${fileUrl(x.file_path)}" target="_blank" rel="noopener">Download ↓</a>`:`<span class="meta">No file</span>`}</div>`).join("")+"</div>"}
+  if(assignments.length)out+=`<div class="student-week"><h3>Assignments</h3>`+assignments.map(x=>`<div class="assignment-row"><b>Assignment ${x.no}: ${esc(x.title)}</b><div class="meta">${esc(x.description||"")}${x.due?" · Due "+esc(x.due):""}</div>${x.file_path?`<a class="download" href="${fileUrl(x.file_path)}" target="_blank" rel="noopener">Download ↓</a>`:""}</div>`).join("")+"</div>";
+  content.innerHTML=out||'<div class="student-week"><p class="muted">No published material is available yet.</p></div>';
+ }catch(err){console.error(err);content.innerHTML=`<div class="student-week"><p class="muted">Unable to load course material. Please try again later.</p></div>`}
+}
+loadStudent();
 </script>
 </body></html>

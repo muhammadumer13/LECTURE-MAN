@@ -19,6 +19,7 @@ const supabase_client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISH
 const FILE_BUCKET="course-files";
 const esc=s=>String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const fileUrl=path=>path?supabase_client.storage.from(FILE_BUCKET).getPublicUrl(path).data.publicUrl:"";
+
 async function loadStudent(){
  try{
   const [{data:lectures,error:le},{data:assignments,error:ae}]=await Promise.all([

@@ -44,7 +44,7 @@ async function initAuth(){
     e.preventDefault();
     const email = document.getElementById("adminEmail").value.trim();
     const password = document.getElementById("adminPassword").value;
-    const btn = loginForm.querySelector("button[type='submit']");
+    const btn = loginForm.querySelector("button[type='submit']") || loginForm.querySelector("button.login-btn");
     loginError.textContent = "";
     btn.disabled = true;
     btn.textContent = "Signing in...";

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Student Lectures</title><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="container">
+<div class="student-shell" style="margin-top:25px">
+<div class="student-hero"><span class="pill">COURSE MATERIAL</span><h1 id="title">My Course Lectures</h1><p>Download published lecture material and assignments.</p></div>
+<div id="content"></div>
+</div>
+</main>
+<script>
+const KEY="lecturehub_v1";const d=JSON.parse(localStorage.getItem(KEY)||'null')||{courseTitle:"My Course Lectures",lectures:[],assignments:[]};
+const esc=s=>String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+title.textContent=d.courseTitle;
+let out="";
+for(let w=1;w<=15;w++){let a=d.lectures.filter(x=>x.week===w&&x.published);if(!a.length)continue;out+=`<div class="student-week"><h3>Week ${String(w).padStart(2,"0")}</h3>`+a.map(x=>`<div class="student-item"><div><b>${esc(x.title)}</b><div class="meta">${esc(x.description||"Lecture material")}</div></div>${x.fileData?`<a class="download" href="${x.fileData}" download="${esc(x.fileName||"lecture-file")}">Download ↓</a>`:`<span class="meta">No file</span>`}</div>`).join("")+"</div>"}
+let as=d.assignments.filter(x=>x.published).sort((a,b)=>a.no-b.no);if(as.length)out+=`<div class="student-week"><h3>Assignments</h3>`+as.map(x=>`<div class="assignment-row"><b>Assignment ${x.no}: ${esc(x.title)}</b><div class="meta">${esc(x.description)}${x.due?" · Due "+esc(x.due):""}</div>${x.fileData?`<a class="download" href="${x.fileData}" download="${esc(x.fileName||"assignment-file")}">Download ↓</a>`:""}</div>`).join("")+"</div>";
+content.innerHTML=out||'<div class="student-week"><p class="muted">No published material is available yet.</p></div>';
+</script>
+</body></html>

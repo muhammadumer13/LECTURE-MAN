@@ -1,38 +1,860 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Student Lectures</title><link rel="stylesheet" href="style.css">
-</head>
-<body>
-<main class="container">
-<div class="student-shell" style="margin-top:25px">
-<div class="student-hero"><span class="pill">COURSE MATERIAL</span><h1 id="title">My Course Lectures</h1><p>Download published lecture material and assignments.</p></div>
-<div id="content"><div class="student-week"><p class="muted">Loading course material...</p></div></div>
-</div>
-</main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-const SUPABASE_URL="https://vujdddbwrsrhbonvzhxk.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY="sb_publishable_i7Mgxy5g7wj5hRBexwymIA_uVlKaBZR";
-const supabase_client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
-const FILE_BUCKET="course-files";
-const esc=s=>String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
-const fileUrl=path=>path?supabase_client.storage.from(FILE_BUCKET).getPublicUrl(path).data.publicUrl:"";
 
-async function loadStudent(){
- try{
-  const [{data:lectures,error:le},{data:assignments,error:ae}]=await Promise.all([
-   supabase_client.from("lectures").select("*").eq("published",true).order("week",{ascending:true}).order("created_at",{ascending:true}),
-   supabase_client.from("assignments").select("*").eq("published",true).order("no",{ascending:true})
-  ]);
-  if(le)throw le;if(ae)throw ae;
-  let out="";
-  for(let w=1;w<=15;w++){let a=lectures.filter(x=>x.week===w);if(!a.length)continue;out+=`<div class="student-week"><h3>Week ${String(w).padStart(2,"0")}</h3>`+a.map(x=>`<div class="student-item"><div><b>${esc(x.title)}</b><div class="meta">${esc(x.description||"Lecture material")}</div></div>${x.file_path?`<a class="download" href="${fileUrl(x.file_path)}" target="_blank" rel="noopener">Download ↓</a>`:`<span class="meta">No file</span>`}</div>`).join("")+"</div>"}
-  if(assignments.length)out+=`<div class="student-week"><h3>Assignments</h3>`+assignments.map(x=>`<div class="assignment-row"><b>Assignment ${x.no}: ${esc(x.title)}</b><div class="meta">${esc(x.description||"")}${x.due?" · Due "+esc(x.due):""}</div>${x.file_path?`<a class="download" href="${fileUrl(x.file_path)}" target="_blank" rel="noopener">Download ↓</a>`:""}</div>`).join("")+"</div>";
-  content.innerHTML=out||'<div class="student-week"><p class="muted">No published material is available yet.</p></div>';
- }catch(err){console.error(err);content.innerHTML=`<div class="student-week"><p class="muted">Unable to load course material. Please try again later.</p></div>`}
-}
-loadStudent();
-</script>
-</body></html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Student Lectures</title>
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        /* ==============================
+           STUDENT FILTERS
+           ============================== */
+
+        .student-filters {
+            margin: 0 0 25px 0;
+            padding: 18px;
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 14px;
+        }
+
+        .search-box {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 13px 16px;
+            border: 1px solid #d9d9d9;
+            border-radius: 10px;
+            font-size: 15px;
+            outline: none;
+            margin-bottom: 15px;
+        }
+
+        .search-box:focus {
+            border-color: #777;
+        }
+
+        .filter-title {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        .filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .filter-btn {
+            border: 1px solid #ddd;
+            background: #fff;
+            padding: 8px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: 0.2s ease;
+        }
+
+        .filter-btn:hover {
+            background: #f5f5f5;
+        }
+
+        .filter-btn.active {
+            background: #222;
+            color: #fff;
+            border-color: #222;
+        }
+
+        /* ==============================
+           COURSE BULLETS
+           ============================== */
+
+        .course-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+
+        .course-bullet {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .course-bullet.programming {
+            background: #1976d2;
+        }
+
+        .course-bullet.dbms {
+            background: #f57c00;
+        }
+
+        .course-bullet.default {
+            background: #777;
+        }
+
+        .course-name-programming {
+            color: #1976d2;
+        }
+
+        .course-name-dbms {
+            color: #f57c00;
+        }
+
+        /* ==============================
+           MOBILE RESPONSIVE
+           ============================== */
+
+        @media (max-width: 600px) {
+
+            .student-filters {
+                padding: 14px;
+                margin-bottom: 18px;
+            }
+
+            .filter-row {
+                gap: 6px;
+            }
+
+            .filter-btn {
+                padding: 7px 11px;
+                font-size: 12px;
+            }
+
+            .search-box {
+                font-size: 14px;
+                padding: 12px;
+            }
+
+            .student-item {
+                flex-direction: column;
+                align-items: flex-start !important;
+                gap: 10px;
+            }
+
+            .student-item .download {
+                align-self: flex-start;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <main class="container">
+
+        <div class="student-shell" style="margin-top:25px">
+
+            <div class="student-hero">
+                <span class="pill">COURSE MATERIAL</span>
+
+                <h1 id="title">My Course Lectures</h1>
+
+                <p>Download published lecture material and assignments.</p>
+            </div>
+
+
+            <!-- ==============================
+                 FILTERS
+                 ============================== -->
+
+            <div class="student-filters">
+
+                <!-- SEARCH -->
+
+                <input
+                    type="text"
+                    id="searchInput"
+                    class="search-box"
+                    placeholder="Search lectures, topics or course..."
+                >
+
+
+                <!-- COURSE FILTER -->
+
+                <div class="filter-title">
+                    Courses
+                </div>
+
+                <div class="filter-row">
+
+                    <button
+                        class="filter-btn active"
+                        data-course="all">
+                        All Courses
+                    </button>
+
+                    <button
+                        class="filter-btn"
+                        data-course="Programming Fundamental">
+                        <span class="course-bullet programming"></span>
+                        Programming Fundamental
+                    </button>
+
+                    <button
+                        class="filter-btn"
+                        data-course="DBMS">
+                        <span class="course-bullet dbms"></span>
+                        DBMS
+                    </button>
+
+                </div>
+
+
+                <!-- WEEK FILTER -->
+
+                <div class="filter-title">
+                    Weeks
+                </div>
+
+                <div class="filter-row">
+
+                    <button
+                        class="filter-btn active"
+                        data-week="all">
+                        All Weeks
+                    </button>
+
+                    <button class="filter-btn" data-week="1">Week 01</button>
+                    <button class="filter-btn" data-week="2">Week 02</button>
+                    <button class="filter-btn" data-week="3">Week 03</button>
+                    <button class="filter-btn" data-week="4">Week 04</button>
+                    <button class="filter-btn" data-week="5">Week 05</button>
+                    <button class="filter-btn" data-week="6">Week 06</button>
+                    <button class="filter-btn" data-week="7">Week 07</button>
+                    <button class="filter-btn" data-week="8">Week 08</button>
+                    <button class="filter-btn" data-week="9">Week 09</button>
+                    <button class="filter-btn" data-week="10">Week 10</button>
+                    <button class="filter-btn" data-week="11">Week 11</button>
+                    <button class="filter-btn" data-week="12">Week 12</button>
+                    <button class="filter-btn" data-week="13">Week 13</button>
+                    <button class="filter-btn" data-week="14">Week 14</button>
+                    <button class="filter-btn" data-week="15">Week 15</button>
+
+                </div>
+
+            </div>
+
+
+            <!-- ==============================
+                 CONTENT
+                 ============================== -->
+
+            <div id="content">
+
+                <div class="student-week">
+                    <p class="muted">
+                        Loading course material...
+                    </p>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+
+    <!-- SUPABASE -->
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script>
+
+        const SUPABASE_URL =
+            "https://vujdddbwrsrhbonvzhxk.supabase.co";
+
+        const SUPABASE_PUBLISHABLE_KEY =
+            "sb_publishable_i7Mgxy5g7wj5hRBexwymIA_uVlKaBZR";
+
+        const supabase_client =
+            window.supabase.createClient(
+                SUPABASE_URL,
+                SUPABASE_PUBLISHABLE_KEY
+            );
+
+        const FILE_BUCKET = "course-files";
+
+
+        const esc = s =>
+            String(s || "").replace(
+                /[&<>"']/g,
+                m => ({
+                    "&": "&amp;",
+                    "<": "&lt;",
+                    ">": "&gt;",
+                    '"': "&quot;",
+                    "'": "&#039;"
+                }[m])
+            );
+
+
+        const fileUrl = path =>
+            path
+                ? supabase_client
+                    .storage
+                    .from(FILE_BUCKET)
+                    .getPublicUrl(path)
+                    .data.publicUrl
+                : "";
+
+
+        /* ==============================
+           FILTER STATE
+           ============================== */
+
+        let allLectures = [];
+
+        let selectedCourse = "all";
+
+        let selectedWeek = "all";
+
+        let searchText = "";
+
+
+        /* ==============================
+           LOAD DATA
+           ============================== */
+
+        async function loadStudent() {
+
+            try {
+
+                const [
+                    { data: lectures, error: le },
+                    { data: assignments, error: ae }
+                ] = await Promise.all([
+
+                    supabase_client
+                        .from("lectures")
+                        .select("*")
+                        .eq("published", true)
+                        .order("week", {
+                            ascending: true
+                        })
+                        .order("created_at", {
+                            ascending: true
+                        }),
+
+                    supabase_client
+                        .from("assignments")
+                        .select("*")
+                        .eq("published", true)
+                        .order("no", {
+                            ascending: true
+                        })
+
+                ]);
+
+
+                if (le) throw le;
+
+                if (ae) throw ae;
+
+
+                allLectures = lectures || [];
+
+
+                renderContent(
+                    assignments || []
+                );
+
+            }
+
+            catch (err) {
+
+                console.error(err);
+
+                document.getElementById("content").innerHTML = `
+                    <div class="student-week">
+                        <p class="muted">
+                            Unable to load course material.
+                            Please try again later.
+                        </p>
+                    </div>
+                `;
+
+            }
+
+        }
+
+
+        /* ==============================
+           COURSE NAME
+           ============================== */
+
+        function getCourseName(lecture) {
+
+            /*
+             * This supports different possible
+             * column names in your Supabase table.
+             */
+
+            return (
+                lecture.course ||
+                lecture.course_name ||
+                lecture.subject ||
+                "Programming Fundamental"
+            );
+
+        }
+
+
+        /* ==============================
+           COURSE STYLE
+           ============================== */
+
+        function getCourseClass(course) {
+
+            const name =
+                String(course).toLowerCase();
+
+            if (
+                name.includes("programming")
+                ||
+                name.includes("fundamental")
+            ) {
+                return "programming";
+            }
+
+            if (
+                name.includes("dbms")
+                ||
+                name.includes("database")
+            ) {
+                return "dbms";
+            }
+
+            return "default";
+
+        }
+
+
+        /* ==============================
+           RENDER CONTENT
+           ============================== */
+
+        function renderContent(assignments) {
+
+            let filtered =
+                allLectures.filter(lecture => {
+
+                    const course =
+                        getCourseName(lecture);
+
+                    const matchesCourse =
+                        selectedCourse === "all"
+                        ||
+                        course
+                            .toLowerCase()
+                            .includes(
+                                selectedCourse.toLowerCase()
+                            );
+
+
+                    const matchesWeek =
+                        selectedWeek === "all"
+                        ||
+                        Number(lecture.week)
+                        === Number(selectedWeek);
+
+
+                    const search =
+                        searchText.toLowerCase();
+
+
+                    const matchesSearch =
+                        !search
+                        ||
+                        String(lecture.title || "")
+                            .toLowerCase()
+                            .includes(search)
+                        ||
+                        String(lecture.description || "")
+                            .toLowerCase()
+                            .includes(search)
+                        ||
+                        String(course)
+                            .toLowerCase()
+                            .includes(search);
+
+
+                    return (
+                        matchesCourse
+                        &&
+                        matchesWeek
+                        &&
+                        matchesSearch
+                    );
+
+                });
+
+
+            let out = "";
+
+
+            /* ==============================
+               LECTURES BY WEEK
+               ============================== */
+
+            for (let w = 1; w <= 15; w++) {
+
+                const weekLectures =
+                    filtered.filter(
+                        x => Number(x.week) === w
+                    );
+
+
+                if (!weekLectures.length)
+                    continue;
+
+
+                out += `
+                    <div class="student-week">
+
+                        <h3>
+                            Week ${String(w).padStart(2, "0")}
+                        </h3>
+                `;
+
+
+                out += weekLectures
+                    .map(x => {
+
+                        const course =
+                            getCourseName(x);
+
+                        const courseClass =
+                            getCourseClass(course);
+
+
+                        return `
+
+                            <div class="student-item">
+
+                                <div>
+
+                                    <b>
+                                        ${esc(x.title)}
+                                    </b>
+
+                                    <div class="course-label">
+
+                                        <span
+                                            class="course-bullet ${courseClass}">
+                                        </span>
+
+                                        <span
+                                            class="course-name-${courseClass}">
+                                            ${esc(course)}
+                                        </span>
+
+                                    </div>
+
+                                    <div class="meta">
+
+                                        ${esc(
+                                            x.description
+                                            ||
+                                            "Lecture material"
+                                        )}
+
+                                    </div>
+
+                                </div>
+
+
+                                ${
+                                    x.file_path
+
+                                    ?
+
+                                    `<a
+                                        class="download"
+                                        href="${fileUrl(x.file_path)}"
+                                        target="_blank"
+                                        rel="noopener">
+                                        Download ↓
+                                    </a>`
+
+                                    :
+
+                                    `<span class="meta">
+                                        No file
+                                    </span>`
+                                }
+
+                            </div>
+
+                        `;
+
+                    })
+                    .join("");
+
+
+                out += "</div>";
+
+            }
+
+
+            /* ==============================
+               ASSIGNMENTS
+               ============================== */
+
+            if (
+                assignments.length
+                &&
+                selectedCourse === "all"
+                &&
+                selectedWeek === "all"
+                &&
+                !searchText
+            ) {
+
+                out += `
+
+                    <div class="student-week">
+
+                        <h3>
+                            Assignments
+                        </h3>
+
+                `;
+
+
+                out += assignments
+                    .map(x => `
+
+                        <div class="assignment-row">
+
+                            <b>
+                                Assignment ${x.no}:
+                                ${esc(x.title)}
+                            </b>
+
+                            <div class="meta">
+
+                                ${esc(
+                                    x.description || ""
+                                )}
+
+                                ${
+                                    x.due
+                                    ? " · Due " +
+                                      esc(x.due)
+                                    : ""
+                                }
+
+                            </div>
+
+                            ${
+                                x.file_path
+
+                                ?
+
+                                `<a
+                                    class="download"
+                                    href="${fileUrl(x.file_path)}"
+                                    target="_blank"
+                                    rel="noopener">
+                                    Download ↓
+                                </a>`
+
+                                :
+
+                                ""
+                            }
+
+                        </div>
+
+                    `)
+                    .join("");
+
+
+                out += "</div>";
+
+            }
+
+
+            /* ==============================
+               EMPTY RESULT
+               ============================== */
+
+            if (!out) {
+
+                out = `
+
+                    <div class="student-week">
+
+                        <p class="muted">
+
+                            No material found
+                            for the selected filters.
+
+                        </p>
+
+                    </div>
+
+                `;
+
+            }
+
+
+            document.getElementById("content")
+                .innerHTML = out;
+
+        }
+
+
+        /* ==============================
+           COURSE BUTTONS
+           ============================== */
+
+        document
+            .querySelectorAll("[data-course]")
+            .forEach(button => {
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        document
+                            .querySelectorAll(
+                                "[data-course]"
+                            )
+                            .forEach(btn =>
+                                btn.classList.remove(
+                                    "active"
+                                )
+                            );
+
+
+                        button.classList.add(
+                            "active"
+                        );
+
+
+                        selectedCourse =
+                            button.dataset.course;
+
+
+                        renderContent(
+                            currentAssignments
+                        );
+
+                    }
+                );
+
+            });
+
+
+        /* ==============================
+           WEEK BUTTONS
+           ============================== */
+
+        document
+            .querySelectorAll("[data-week]")
+            .forEach(button => {
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        document
+                            .querySelectorAll(
+                                "[data-week]"
+                            )
+                            .forEach(btn =>
+                                btn.classList.remove(
+                                    "active"
+                                )
+                            );
+
+
+                        button.classList.add(
+                            "active"
+                        );
+
+
+                        selectedWeek =
+                            button.dataset.week;
+
+
+                        renderContent(
+                            currentAssignments
+                        );
+
+                    }
+                );
+
+            });
+
+
+        /* ==============================
+           SEARCH
+           ============================== */
+
+        document
+            .getElementById("searchInput")
+            .addEventListener(
+                "input",
+                event => {
+
+                    searchText =
+                        event.target.value.trim();
+
+                    renderContent(
+                        currentAssignments
+                    );
+
+                }
+            );
+
+
+        /* ==============================
+           ASSIGNMENT CACHE
+           ============================== */
+
+        let currentAssignments = [];
+
+
+        /*
+         * Override renderContent assignment cache
+         */
+
+        const originalRenderContent =
+            renderContent;
+
+
+        renderContent = function(assignments) {
+
+            currentAssignments =
+                assignments || [];
+
+            originalRenderContent(
+                currentAssignments
+            );
+
+        };
+
+
+        /* ==============================
+           START
+           ============================== */
+
+        loadStudent();
+
+    </script>
+
+</body>
+
+</html>
+```

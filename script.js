@@ -1704,6 +1704,17 @@ function getCourseClass(course) {
 
   }
 
+    if (
+    name.includes("info") ||
+    name.includes("information") ||
+    name.includes("security")
+
+  ) {
+
+    return "information";
+
+  }
+
 
   return "default";
 }

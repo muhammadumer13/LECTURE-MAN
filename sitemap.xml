@@ -1,0 +1,15 @@
+
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+    <!-- LectureHub Homepage -->
+    <url>
+        <loc>https://muhammadumer13.github.io/LECTURE-MAN/index.html</loc>
+    </url>
+
+    <!-- LectureHub Student Portal -->
+    <url>
+        <loc>https://muhammadumer13.github.io/LECTURE-MAN/student.html</loc>
+    </url>
+
+</urlset>
